@@ -44,8 +44,7 @@ def main():
     MODEL_NAME = "cyclegan_XXX_model.pth"
     
     df_train, test_loader = data_preprocessing()
-    df_train = df_train.iloc[:10]
-    trainer = Trainer(device = DEVICE, n_epochs=10, model_name=MODEL_NAME)
+    trainer = Trainer(device = DEVICE, model_name=MODEL_NAME, model=CycleGAN)
     trainer.load_checkpoint()
     trainer.start_train(df_train)
     model_evaluation()

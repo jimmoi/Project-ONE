@@ -68,7 +68,7 @@ class ImageBuffer():
 class Trainer():
     
     def __init__(
-                self, device, model_name,
+                self, device, model_name, model,
                 lr=0.0002, 
                 beta1=0.5, 
                 beta2=0.999, 
@@ -102,7 +102,7 @@ class Trainer():
         self.criterion_identity = nn.L1Loss()
         
         # model
-        self.model = CycleGAN(device)
+        self.model = model(device)
         self.model_net = [self.model.G_A2B, self.model.G_B2A, self.model.D_A, self.model.D_B]
         if init_weights:
             for net in self.model_net:
