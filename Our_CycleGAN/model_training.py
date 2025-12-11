@@ -103,6 +103,7 @@ class Trainer():
         
         # model
         self.model = model(device)
+        self.model.model_init()
         self.model_net = [self.model.G_A2B, self.model.G_B2A, self.model.D_A, self.model.D_B]
         if init_weights:
             for net in self.model_net:
@@ -509,7 +510,7 @@ class Trainer():
         new_train_dataset = CustomDataset(df_train, transform=self.get_cyclegan_transforms())
         # shuffle=False is typically used here because the DataFrame columns are already shuffled.
         # However, keeping shuffle=True here won't hurt, but we set it to False for clarity.
-        train_loader = DataLoader(new_train_dataset, batch_size=1, shuffle=False)
+        train_loader = DataLoader(new_train_dataset, batch_size=1, shuffle=False)  # !! Caution: fix batch_size = 1
         # ----------------------------------------------------------------------
         
         return train_loader
