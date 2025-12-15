@@ -89,7 +89,7 @@ def evaluate_quantitative(generated_image_tensor, real_image_tensor, device):
     
     return metrics
 
-def evaluate_qualitative(compare_image):
+def evaluate_qualitative(compare_image, save_path):
         
     def compare_plot(compare_image, titles="Compare Images (Low Light, Normal Light, Generated)"):
         """
@@ -121,4 +121,4 @@ def evaluate_qualitative(compare_image):
         return fig
     
     result_fig = compare_plot(compare_image)
-    save_fig_png(result_fig, "Our_CycleGAN/compare.png")
+    save_fig_png(result_fig, save_path)

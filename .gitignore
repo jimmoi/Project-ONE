@@ -1,7 +1,7 @@
 checkpoints
 Dataset
 models
-training_history
+experiments
 
 # Ignore all __pycache__ directories anywhere in the repository
 **/__pycache__/
