@@ -15,6 +15,7 @@ import time
 import json
 import pickle
 from CycleGAN_arch import CycleGAN
+from experiment_manager import EXPERIMENT_MANAGER
 
 class CustomDataset(Dataset):
     def __init__(self, dataframe, transform=None):
@@ -68,7 +69,7 @@ class ImageBuffer():
 class Trainer():
     
     def __init__(
-                self, experiment_manager, model,
+                self, model,
                 lr=0.0002, 
                 beta1=0.5, 
                 beta2=0.999, 
@@ -80,9 +81,6 @@ class Trainer():
                 history_step=10, 
                 init_weights=True,
                 ):
-        
-        # experiment manager
-        self.experiment_manager = experiment_manager
         
         # Hyperparameters
         self.lr = lr
@@ -102,7 +100,7 @@ class Trainer():
         self.criterion_identity = nn.L1Loss()
         
         # model
-        self.model = model(experiment_manager.device)
+        self.model = model(device=EXPERIMENT_MANAGER.device)
         self.model.model_init()
         self.model_net = [self.model.G_A2B, self.model.G_B2A, self.model.D_A, self.model.D_B]
         if init_weights:
@@ -223,8 +221,8 @@ class Trainer():
             'D_A_state_dict': self.model.D_A.state_dict(),
             'D_B_state_dict': self.model.D_B.state_dict(),
         }
-        torch.save(state, self.experiment_manager.full_model_path)
-        print(f"Model saved to {self.experiment_manager.full_model_path}")
+        torch.save(state, EXPERIMENT_MANAGER.full_model_path)
+        print(f"Model saved to {EXPERIMENT_MANAGER.full_model_path}")
         
     def save_checkpoint(self, epoch, best_G_loss, mode_best_checkpoint=False):
         """Saves the state of all models and optimizers."""
@@ -239,24 +237,24 @@ class Trainer():
             'optimizer_D_A_state_dict': self.optimizer_D_A.state_dict(),
             'optimizer_D_B_state_dict': self.optimizer_D_B.state_dict(),
         }
-        torch.save(state, self.experiment_manager.checkpoint_path)
-        print(f"Checkpoint saved to {self.experiment_manager.checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
+        torch.save(state, EXPERIMENT_MANAGER.checkpoint_path)
+        print(f"Checkpoint saved to {EXPERIMENT_MANAGER.checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
         if mode_best_checkpoint:
-            torch.save(state, self.experiment_manager.best_checkpoint_path)
-            print(f"Best checkpoint saved to {self.experiment_manager.best_checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
+            torch.save(state, EXPERIMENT_MANAGER.best_checkpoint_path)
+            print(f"Best checkpoint saved to {EXPERIMENT_MANAGER.best_checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
     
     def load_checkpoint(self, mode_best_checkpoint = False):
         """Loads state from a checkpoint file if it exists.
         mode_best_checkpoint: if True, load the best checkpoint, otherwise load the last checkpoint"""
-        if os.path.exists(self.experiment_manager.checkpoint_path):
+        if os.path.exists(EXPERIMENT_MANAGER.checkpoint_path):
             if mode_best_checkpoint:
-                checkpoint_path = self.experiment_manager.best_checkpoint_path
+                checkpoint_path = EXPERIMENT_MANAGER.best_checkpoint_path
             else:
-                checkpoint_path = self.experiment_manager.checkpoint_path
+                checkpoint_path = EXPERIMENT_MANAGER.checkpoint_path
             try:
                 
                 print(f"Loading checkpoint from {checkpoint_path}...")
-                checkpoint = torch.load(checkpoint_path, map_location=self.experiment_manager.device, weights_only=False)
+                checkpoint = torch.load(checkpoint_path, map_location=EXPERIMENT_MANAGER.device, weights_only=False)
                 
                 # Load states
                 self.model.G_A2B.load_state_dict(checkpoint['G_A2B_state_dict'])
@@ -278,7 +276,7 @@ class Trainer():
                 print(f"Error loading checkpoint: {e}. Starting fresh.")
                 return False
         else:
-            print(f"No checkpoint found at {self.experiment_manager.checkpoint_path}. Starting fresh.")
+            print(f"No checkpoint found at {EXPERIMENT_MANAGER.checkpoint_path}. Starting fresh.")
             return False
         
     def train_loop(self, df_train):
@@ -296,7 +294,7 @@ class Trainer():
             
             if epoch+1 == end_epoch_history:
                 file_name = f"Training_log_history_ep{start_epoch_history}_to_{end_epoch_history-1}.json"
-                file_path = os.path.join(self.experiment_manager.curr_dir, file_name)
+                file_path = os.path.join(EXPERIMENT_MANAGER.curr_dir, file_name)
                 with open(file_path, "w") as f:
                     json.dump(train_history, f)
                 start_epoch_history = end_epoch_history
@@ -356,13 +354,13 @@ class Trainer():
         A = Low Light, B = Normal Light
         """
         # Move data to device
-        real_A = real_A.to(self.experiment_manager.device)
-        real_B = real_B.to(self.experiment_manager.device)
+        real_A = real_A.to(EXPERIMENT_MANAGER.device)
+        real_B = real_B.to(EXPERIMENT_MANAGER.device)
 
         # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
         # image at D model in last channel is 1x30x30
-        real_target = torch.full((real_A.size(0), 1, 30, 30), 1.0, device=self.experiment_manager.device) # image at D model in last channel is 30x30
-        fake_target = torch.full((real_A.size(0), 1, 30, 30), 0.0, device=self.experiment_manager.device)
+        real_target = torch.full((real_A.size(0), 1, 30, 30), 1.0, device=EXPERIMENT_MANAGER.device) # image at D model in last channel is 30x30
+        fake_target = torch.full((real_A.size(0), 1, 30, 30), 0.0, device=EXPERIMENT_MANAGER.device)
         
         # ---------------------------------------------------
         # 1. Update Generators (G_A2B and G_B2A)
