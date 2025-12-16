@@ -27,6 +27,8 @@ def data_preprocessing():
     df_train.reset_index(drop=True, inplace=True)
     df_test.reset_index(drop=True, inplace=True)
     
+    df_test = df_test[:50]
+    
     test_dataset = CustomDataset(df_test, transform=CycleGAN.get_image_transforms())
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False) # !! Caution: fix batch_size = 1
 
@@ -89,7 +91,7 @@ def model_evaluation(test_loader, n_sample=7):
     print("Evaluation finished.")
     
 def model_training(df_train):
-    trainer = Trainer(model=CycleGAN)
+    trainer = Trainer(model=CycleGAN, n_epochs=5, history_step=1)
     trainer.load_checkpoint()
     trainer.start_train(df_train)
     
@@ -126,12 +128,13 @@ def main():
     #--------------------------
     # Experiment Setup
     #--------------------------
-    EXPERIMENT_MANAGER.set_experiment_name()
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_XXX")
     EXPERIMENT_MANAGER.setup_experiment()
     #--------------------------
     # Data Preprocessing
     #--------------------------
     df_train, test_loader = data_preprocessing()
+    df_train = df_train[:50]
     
     #--------------------------
     # Model Training
