@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import pandas as pd
 from model_training import CustomDataset, Trainer
-from CycleGAN_arch import CycleGAN
+from CycleGAN_arch import CycleGAN, CycleGAN_CBAM
 import data_preparation
 from model_evaluation import evaluate_quantitative, evaluate_qualitative
 from plot_metric_history import plot_metric_history
@@ -29,7 +29,7 @@ def data_preprocessing():
     
     df_test = df_test[:50]
     
-    test_dataset = CustomDataset(df_test, transform=CycleGAN.get_image_transforms())
+    test_dataset = CustomDataset(df_test, transform=EXPERIMENT_MANAGER.model.get_image_transforms())
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False) # !! Caution: fix batch_size = 1
 
     return df_train, test_loader
@@ -91,7 +91,7 @@ def model_evaluation(test_loader, n_sample=7):
     print("Evaluation finished.")
     
 def model_training(df_train):
-    trainer = Trainer(model=CycleGAN, n_epochs=5, history_step=1)
+    trainer = Trainer(model=EXPERIMENT_MANAGER.model, n_epochs=5, history_step=1)
     trainer.load_checkpoint()
     trainer.start_train(df_train)
     
@@ -128,7 +128,7 @@ def main():
     #--------------------------
     # Experiment Setup
     #--------------------------
-    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_XXX")
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_cbam_XXX", model=CycleGAN_CBAM)
     EXPERIMENT_MANAGER.setup_experiment()
     #--------------------------
     # Data Preprocessing

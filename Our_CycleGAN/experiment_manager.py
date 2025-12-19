@@ -24,6 +24,7 @@ class ExperimentManager:
         self.agg_quantitative_metrics_path = None
         self.qualitative_metrics_path = None
         self.log_history_path = None
+        self.model = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.data_path = data_path
             
@@ -42,14 +43,14 @@ class ExperimentManager:
             print(f"Experiment directory {self.curr_dir} already exists.")
     
     def load_model(self):
-        model = CycleGAN(self.device, only_G_A2B=True)
+        model = self.model(self.device, only_G_A2B=True)
         model.model_init()
         model_path = self.full_model_path if os.path.exists(self.full_model_path) else self.best_checkpoint_path
         status = model.load_model(model_path = model_path)
         model.eval()
         return model, status
     
-    def set_experiment_name(self, experiment_name):
+    def set_experiment_name(self, experiment_name, model):
         self.experiment_name = experiment_name
         self.curr_dir = os.path.join(self.experiment_dir, experiment_name)
         self.full_model_path = os.path.join(self.model_dir, self.experiment_name + "_model.pth")
@@ -59,6 +60,7 @@ class ExperimentManager:
         self.agg_quantitative_metrics_path = os.path.join(self.curr_dir, self.agg_quantitative_metrics_file)
         self.qualitative_metrics_path = os.path.join(self.curr_dir, self.qualitative_metrics_file)
         self.log_history_path = os.path.join(self.curr_dir, self.log_history_file)
+        self.model = model
 
 data_path = {
         "lol":"Our_CycleGAN\Dataset\LOL",
