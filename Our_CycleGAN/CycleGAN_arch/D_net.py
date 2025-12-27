@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-class Discriminator(nn.Module):
+# PatchGAN
+class Discriminator(nn.Module): 
     def __init__(self, input_nc):
         super().__init__()
         

@@ -83,7 +83,7 @@ class CycleGAN():
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
         
-class CycleGAN_CBAM(CycleGAN):
+class CycleGAN_CBAM_GL(CycleGAN):
     def __init__(self, device, only_G_A2B=False):
         super().__init__(device, only_G_A2B)
         
@@ -91,8 +91,10 @@ class CycleGAN_CBAM(CycleGAN):
         # --- MODEL INITIALIZATION (User's original structure) ---
         # discriminator
         if not self.only_G_A2B:
-            self.D_A = Discriminator(input_nc=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
-            self.D_B = Discriminator(input_nc=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
+            # self.D_A = Discriminator(input_nc=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
+            # self.D_B = Discriminator(input_nc=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
+            self.D_A = Discriminator_GL(input_nc=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
+            self.D_B = Discriminator_GL(input_nc=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
 
         # generator
             self.G_A2B = Generator_CBAM(input_nc=3, output_nc=3).to(self.device) # G_B(A) -> B

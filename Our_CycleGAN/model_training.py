@@ -502,7 +502,157 @@ class Trainer():
         print(f"\nStarting CycleGAN Training for {self.n_epochs - self.start_epoch} epochs (Total {self.n_epochs})...")
         self.train_loop(df_train)
         
+        
+class Trainer_CBAM_GL(Trainer):
+    def __init__(self, model, **kwargs):
+        super().__init__(model, **kwargs)
+        
+    def train_step(self, real_A, real_B):
+        """
+        Performs a single training step, updating both Generators and Discriminators.
+        A = Low Light, B = Normal Light
+        """
+        # Move data to device
+        real_A = real_A.to(EXPERIMENT_MANAGER.device)
+        real_B = real_B.to(EXPERIMENT_MANAGER.device)
 
+        # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
+        # Old PatchGAN targets:
+        # real_target = torch.full((real_A.size(0), 1, 30, 30), 1.0, device=EXPERIMENT_MANAGER.device) # image at D model in last channel is 30x30
+        # fake_target = torch.full((real_A.size(0), 1, 30, 30), 0.0, device=EXPERIMENT_MANAGER.device)
+
+        # Discriminator_GL outputs a single scalar (B, 1)
+        real_target = torch.full((real_A.size(0), 1), 1.0, device=EXPERIMENT_MANAGER.device) 
+        fake_target = torch.full((real_A.size(0), 1), 0.0, device=EXPERIMENT_MANAGER.device)
+        
+        # ---------------------------------------------------
+        # 1. Update Generators (G_A2B and G_B2A)
+        # ---------------------------------------------------
+        loss_G_total, loss_G_A2B, loss_G_B2A, loss_cycle, loss_identity, fake_A, fake_B = self.gan_training_step(real_A, real_B, real_target, fake_target)
+        
+        # ---------------------------------------------------
+        # 2. Update Discriminators (D_A and D_B)
+        # ---------------------------------------------------
+        loss_D_A, loss_D_B = self.discriminator_training_step(real_A, real_B, real_target, fake_target, fake_A, fake_B)
+
+        # --- Return Loss Metrics ---
+        metrics = {
+            'G_Total': loss_G_total.item(),
+            'G_A2B': loss_G_A2B.item(),
+            'G_B2A': loss_G_B2A.item(),
+            'Cycle': loss_cycle.item(),
+            'Id': loss_identity.item(),
+            'D_A': loss_D_A.item(),
+            'D_B': loss_D_B.item(),
+        }
+        return metrics
+    
+    def sample_local_patch(self, img, patch_size=128):
+        """
+        Randomly crops a patch of size (patch_size, patch_size) from the input image.
+        Assumes img is (B, C, H, W).
+        Returns patch (B, C, patch_size, patch_size).
+        """
+        _, _, h, w = img.shape
+        i = random.randint(0, h - patch_size)
+        j = random.randint(0, w - patch_size)
+        return img[..., i:i+patch_size, j:j+patch_size]
+        
+    def gan_training_step(self, real_A, real_B, real_target, fake_target):
+        # Set generator models to training mode
+        self.model.G_A2B.train()
+        self.model.G_B2A.train()
+        self.optimizer_G.zero_grad()
+
+        # A. Identity Loss (Optional, but standard for CycleGAN)
+        # G_A2B should output B when given B (Normal -> Normal)
+        id_B = self.model.G_A2B(real_B)
+        loss_id_B = self.criterion_identity(id_B, real_B)
+
+        # G_B2A should output A when given A (Low -> Low)
+        id_A = self.model.G_B2A(real_A)
+        loss_id_A = self.criterion_identity(id_A, real_A)
+        
+        loss_identity = self.identity_objective(loss_id_A, loss_id_B)
+
+        # B. GAN Loss (Generators want to fool the discriminators)
+        # G_A2B(A) should look like B (Normal)
+        fake_B = self.model.G_A2B(real_A)
+        # pred_fake_B = self.model.D_B(fake_B)
+        fake_B_local = self.sample_local_patch(fake_B)
+        pred_fake_B = self.model.D_B(fake_B, fake_B_local)
+        loss_G_A2B = self.criterion_GAN(pred_fake_B, real_target)
+
+        # G_B2A(B) should look like A (Low)
+        fake_A = self.model.G_B2A(real_B)
+        # pred_fake_A = self.model.D_A(fake_A)
+        fake_A_local = self.sample_local_patch(fake_A)
+        pred_fake_A = self.model.D_A(fake_A, fake_A_local)
+        loss_G_B2A = self.criterion_GAN(pred_fake_A, real_target)
+        
+        # C. Cycle Consistency Loss (Recycle images back)
+        # Cycle A: A -> B -> A (real_A should be close to G_B2A(G_A2B(real_A)))
+        reconstructed_A = self.model.G_B2A(fake_B)
+        loss_cycle_A = self.criterion_cycle(reconstructed_A, real_A)
+
+        # Cycle B: B -> A -> B (real_B should be close to G_A2B(G_B2A(real_B)))
+        reconstructed_B = self.model.G_A2B(fake_A)
+        loss_cycle_B = self.criterion_cycle(reconstructed_B, real_B)
+        
+        loss_cycle = self.cycle_objective(loss_cycle_A, loss_cycle_B)
+
+        # D. Total Generator Loss and Update
+        loss_G_total = self.gan_objective(loss_G_A2B, loss_G_B2A, loss_cycle, loss_identity)
+            
+        loss_G_total.backward()
+        self.optimizer_G.step()
+        
+        return loss_G_total, loss_G_A2B, loss_G_B2A, loss_cycle, loss_identity, fake_A, fake_B
+    
+    def discriminator_training_step(self, real_A, real_B, real_target, fake_target, fake_A, fake_B):
+        # Set discriminator models to training mode
+        self.model.D_A.train()
+        self.model.D_B.train()
+        self.optimizer_D_A.zero_grad()
+        self.optimizer_D_B.zero_grad()
+
+        # E. Update D_B (Discriminator for Normal Light B)
+        # Real loss D_B
+        # pred_real_B = self.model.D_B(real_B)
+        real_B_local = self.sample_local_patch(real_B)
+        pred_real_B = self.model.D_B(real_B, real_B_local)
+        loss_D_B_real = self.criterion_GAN(pred_real_B, real_target)
+        
+        # Fake loss D_B (Use buffered fake image)
+        fake_B_buffered = self.fake_B_buffer.push_and_pop(fake_B)
+        # pred_fake_B_buff = self.model.D_B(fake_B_buffered.detach()) # Detach is crucial here!
+        fake_B_buffered_local = self.sample_local_patch(fake_B_buffered)
+        pred_fake_B_buff = self.model.D_B(fake_B_buffered.detach(), fake_B_buffered_local.detach()) # Detach is crucial here!
+        loss_D_B_fake = self.criterion_GAN(pred_fake_B_buff, fake_target)
+        
+        loss_D_B = self.discriminator_objective(loss_D_B_real, loss_D_B_fake)
+        loss_D_B.backward()
+        self.optimizer_D_B.step()
+
+        # F. Update D_A (Discriminator for Low Light A)
+        # Real loss D_A
+        # pred_real_A = self.model.D_A(real_A)
+        real_A_local = self.sample_local_patch(real_A)
+        pred_real_A = self.model.D_A(real_A, real_A_local)
+        loss_D_A_real = self.criterion_GAN(pred_real_A, real_target)
+
+        # Fake loss D_A (Use buffered fake image)
+        fake_A_buffered = self.fake_A_buffer.push_and_pop(fake_A)
+        # pred_fake_A_buff = self.model.D_A(fake_A_buffered.detach()) # Detach is crucial here!
+        fake_A_buffered_local = self.sample_local_patch(fake_A_buffered)
+        pred_fake_A_buff = self.model.D_A(fake_A_buffered.detach(), fake_A_buffered_local.detach()) # Detach is crucial here!
+        loss_D_A_fake = self.criterion_GAN(pred_fake_A_buff, fake_target)
+
+        loss_D_A = self.discriminator_objective(loss_D_A_real, loss_D_A_fake)
+        loss_D_A.backward()
+        self.optimizer_D_A.step()
+        
+        return loss_D_A, loss_D_B
 
 
 
