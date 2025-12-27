@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
@@ -40,3 +41,82 @@ class Discriminator(nn.Module):
     def forward(self, x):
         # We don't apply Sigmoid here; it's handled in the loss function (MSELoss in this case)
         return self.model(x)
+    
+    
+class Discriminator_GL(nn.Module):
+    def __init__(self, input_nc):
+        super(Discriminator_GL, self).__init__()
+        
+        # Global Discriminator
+        # Input: 256 x 256
+        self.global_conv = nn.Sequential(
+            nn.Conv2d(input_nc, 64, kernel_size=5, stride=2, padding=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(128, 256, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(256, 512, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(512, 512, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(512, 512, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        self.global_fc = nn.Linear(512 * 4 * 4, 1024)
+        
+        # Local Discriminator
+        # Input: 128 x 128
+        self.local_conv = nn.Sequential(
+            nn.Conv2d(input_nc, 64, kernel_size=5, stride=2, padding=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(128, 256, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(256, 512, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(512, 512, kernel_size=5, stride=2, padding=2),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        self.local_fc = nn.Linear(512 * 4 * 4, 1024)
+        
+        # Concatenation layer
+        self.feat_fc = nn.Linear(2048, 1)
+
+    def forward(self, x_global, x_local):
+        # Global pathway
+        x_g = self.global_conv(x_global)
+        x_g = x_g.view(x_g.size(0), -1)
+        x_g = self.global_fc(x_g)
+        
+        # Local pathway
+        x_l = self.local_conv(x_local)
+        x_l = x_l.view(x_l.size(0), -1)
+        x_l = self.local_fc(x_l)
+        
+        # Combine
+        out = torch.cat((x_g, x_l), 1)
+        out = self.feat_fc(out)
+        
+        return out
