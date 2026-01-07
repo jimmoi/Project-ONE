@@ -1,9 +1,12 @@
+import shutil
 import os
 import torch
 from CycleGAN_arch import CycleGAN
+from torch.utils.tensorboard import SummaryWriter
 
 class ExperimentManager:
     experiment_dir = "Our_CycleGAN\experiments"
+    tensorboard_dir = os.path.join(experiment_dir, "runs")
     model_dir = "Our_CycleGAN\models"
     checkpoint_file = "cyclegan_checkpoint.pth"
     best_checkpoint_file = "cyclegan_best_checkpoint.pth"
@@ -25,6 +28,7 @@ class ExperimentManager:
         self.qualitative_metrics_path = None
         self.log_history_path = None
         self.model = None
+        self.tensorboard_writer = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.data_path = data_path
         self.seed = 42
@@ -40,8 +44,12 @@ class ExperimentManager:
     def create_experiment_dir(self):
         try:
             os.makedirs(self.curr_dir)
+            os.makedirs(self.tensorboard_dir)
         except FileExistsError:
             print(f"Experiment directory {self.curr_dir} already exists.")
+            
+    def create_tensorboard_writer(self):
+        self.tensorboard_writer = SummaryWriter(os.path.join(self.tensorboard_dir, self.experiment_name))
     
     def load_model(self):
         model = self.model(self.device, only_G_A2B=True)
@@ -62,6 +70,7 @@ class ExperimentManager:
         self.qualitative_metrics_path = os.path.join(self.curr_dir, self.qualitative_metrics_file)
         self.log_history_path = os.path.join(self.curr_dir, self.log_history_file)
         self.model = model
+        self.create_tensorboard_writer()
 
 data_path = {
         "lol":"Our_CycleGAN\Dataset\LOL",
