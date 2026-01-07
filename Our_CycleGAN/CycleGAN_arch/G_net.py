@@ -73,6 +73,11 @@ class Generator(nn.Module):
     def forward(self, x):
         return self.model(x)
     
+
+# ==========================================
+# ส่วนที่ 2: Residual Block (รวม CBAM)
+# ==========================================
+
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, ratio=16):
         super(ChannelAttention, self).__init__()
@@ -109,10 +114,6 @@ class SpatialAttention(nn.Module):
         x = torch.cat([avg_out, max_out], dim=1)
         x = self.conv1(x)
         return self.sigmoid(x)
-
-# ==========================================
-# ส่วนที่ 2: Residual Block (รวม CBAM)
-# ==========================================
 
 class ResidualBlock_CBAM(nn.Module):
     def __init__(self, dim, use_cbam=True):

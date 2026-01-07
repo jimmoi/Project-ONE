@@ -9,7 +9,7 @@ def plot_metric_history(df, n_x_ticks=50):
     loss_columns = ['G_Total', 'G_A2B', 'G_B2A', 'Cycle', 'Id', 'D_A', 'D_B']
     summary_df = df.groupby('epoch')[loss_columns].mean().reset_index()
     
-    fig, axes = plt.subplots(3, 2, figsize=(15, 18))
+    fig, axes = plt.subplots(4, 2, figsize=(15, 18))
     axes = axes.flatten()
     
     x_data = summary_df['epoch']

@@ -16,6 +16,7 @@ import json
 import pickle
 from CycleGAN_arch import CycleGAN
 from experiment_manager import EXPERIMENT_MANAGER
+random.seed(EXPERIMENT_MANAGER.seed)
 
 class CustomDataset(Dataset):
     def __init__(self, dataframe, transform=None):

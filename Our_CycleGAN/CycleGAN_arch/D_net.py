@@ -43,7 +43,6 @@ class Discriminator(nn.Module):
         # We don't apply Sigmoid here; it's handled in the loss function (MSELoss in this case)
         return self.model(x)
     
-    
 class Discriminator_GL(nn.Module):
     def __init__(self, input_nc):
         super(Discriminator_GL, self).__init__()

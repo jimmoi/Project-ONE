@@ -89,7 +89,7 @@ def model_evaluation(test_loader, n_sample=7):
     print("Evaluation finished.")
     
 def model_training(df_train):
-    trainer = Trainer_CBAM_GL(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10)
+    trainer = Trainer(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10)
     trainer.load_checkpoint()
     trainer.start_train(df_train)
     
@@ -126,7 +126,7 @@ def main():
     #--------------------------
     # Experiment Setup
     #--------------------------
-    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_cbam_gl_200", model=CycleGAN_CBAM_GL)
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_200", model=CycleGAN)
     EXPERIMENT_MANAGER.setup_experiment()
     #--------------------------
     # Data Preprocessing

@@ -27,6 +27,7 @@ class ExperimentManager:
         self.model = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.data_path = data_path
+        self.seed = 42
             
     def setup_experiment(self):
         if self.experiment_name is None:
