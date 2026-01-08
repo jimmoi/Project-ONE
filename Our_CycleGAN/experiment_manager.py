@@ -17,6 +17,8 @@ class ExperimentManager:
     log_history_file = "history.png"
     
     def __init__(self, data_path, tensorboard=True):
+        self.trainer = None
+        self.dataset = None
         self.experiment_name = None
         self.curr_dir = None
         self.full_model_path = None
@@ -41,6 +43,12 @@ class ExperimentManager:
         os.makedirs(self.experiment_dir, exist_ok=True)
         os.makedirs(self.model_dir, exist_ok=True)
         self.create_experiment_dir()
+        
+    def setup_dataset(self, dataset):
+        self.dataset = dataset
+        
+    def setup_trainer(self, trainer):
+        self.trainer = trainer
         
     def create_experiment_dir(self):
         try:

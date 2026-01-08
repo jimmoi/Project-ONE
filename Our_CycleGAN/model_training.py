@@ -18,27 +18,6 @@ from CycleGAN_arch import CycleGAN
 from experiment_manager import EXPERIMENT_MANAGER
 random.seed(EXPERIMENT_MANAGER.seed)
 
-class CustomDataset(Dataset):
-    def __init__(self, dataframe, transform=None):
-        self.dataframe = dataframe
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.dataframe)
-
-    def __getitem__(self, idx):
-        A_path = self.dataframe.iloc[idx, 1]
-        B_path = self.dataframe.iloc[idx, 3]
-
-        A_image = Image.open(A_path).convert("RGB")
-        B_image = Image.open(B_path).convert("RGB")
-
-        if self.transform:
-            A_image = self.transform(A_image)
-            B_image = self.transform(B_image)
-
-        return A_image, B_image
-    
 class ImageBuffer():
     """
     A buffer to store the last 50 generated images.
@@ -499,7 +478,7 @@ class Trainer():
         df_train.loc[:,"normal_light_path"] = df_train["normal_light_path"].sample(frac=1).values
         
         # 2. Re-instantiate the Dataset and DataLoader with the new, unpaired DataFrame
-        new_train_dataset = CustomDataset(df_train, transform=self.get_cyclegan_transforms())
+        new_train_dataset = EXPERIMENT_MANAGER.dataset(df_train)
         # shuffle=False is typically used here because the DataFrame columns are already shuffled.
         # However, keeping shuffle=True here won't hurt, but we set it to False for clarity.
         train_loader = DataLoader(new_train_dataset, batch_size=1, shuffle=False)  # !! Caution: fix batch_size = 1
@@ -687,8 +666,88 @@ class Trainer_CBAM_GL_V2(Trainer):
         self.criterion_GAN = nn.BCEWithLogitsLoss()
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
+        self.temp_dataset = EXPERIMENT_MANAGER.dataset(None)
+    
+    def train_loop(self, df_train):
+        total_start_time = time.time()  # Track total training time
+        train_history = [] # To store training history
         
-    def train_step(self, real_A, real_B):
+        start_epoch_history = self.start_epoch
+        end_epoch_history = start_epoch_history + self.history_step
+        
+        for epoch in range(self.start_epoch, self.n_epochs):
+            train_loader = self.create_train_loader(df_train)
+            
+            progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.n_epochs}")
+            avg_metrics = {k: [] for k in ['G_Total', 'G_A2B', 'G_B2A', 'Cycle', 'Id', 'D_A', 'D_B']}
+            
+            if epoch+1 == end_epoch_history:
+                file_name = f"Training_log_history_ep{start_epoch_history}_to_{end_epoch_history-1}.json"
+                file_path = os.path.join(EXPERIMENT_MANAGER.curr_dir, file_name)
+                with open(file_path, "w") as f:
+                    json.dump(train_history, f)
+                start_epoch_history = end_epoch_history
+                end_epoch_history = start_epoch_history + self.history_step
+                train_history = []
+                
+            metric_per_epoch = {k: [] for k in ['G_Total', 'G_A2B', 'G_B2A', 'Cycle', 'Id', 'D_A', 'D_B']}
+                
+            for i, (real_A, real_A_patches, real_B, real_B_patches) in enumerate(progress_bar):
+                metrics = self.train_step(real_A, real_A_patches, real_B, real_B_patches)
+                for k in metric_per_epoch.keys():
+                    metric_per_epoch[k].append(metrics[k])
+                
+                # --- LOG LOSS FOR HISTORY ---
+                log_entry = {
+                    'epoch': epoch,
+                    'iteration': i,
+                    'metrics': {k: float(v) for k, v in metrics.items()} # Convert to float for JSON safety
+                }
+                
+                train_history.append(log_entry)
+                
+                # Log metrics for TQDM
+                for key, value in metrics.items():
+                    avg_metrics[key].append(value)
+
+                log_dict = {k: np.mean(v) for k, v in avg_metrics.items()}
+                progress_bar.set_postfix(log_dict)
+                
+            metric_per_epoch = {k: np.mean(v) for k, v in metric_per_epoch.items()}
+            
+            # --- LOG LOSS FOR TENSORBOARD ---
+            if EXPERIMENT_MANAGER.verbose_tensorboard:
+                self.tensorboard_writer(metric_per_epoch, epoch = epoch)
+                
+            # Calculate average Generator & Discriminator Loss for the epoch
+            current_avg_G_loss = metric_per_epoch['G_Total']
+            current_avg_D_A_loss = metric_per_epoch['D_A']
+            current_avg_D_B_loss = metric_per_epoch['D_B']
+
+            print(f"\n--- Epoch {epoch+1} Complete ---")
+            print(f"Avg Loss G: {current_avg_G_loss:.4f} | Avg Loss D_A: {current_avg_D_A_loss:.4f} | Avg Loss D_B: {current_avg_D_B_loss:.4f}")
+                
+            # Save checkpoint if the average G loss is the best we've seen
+            if current_avg_G_loss < self.best_G_loss:
+                self.best_G_loss = current_avg_G_loss
+                self.save_checkpoint(epoch, self.best_G_loss, mode_best_checkpoint=True)
+                
+            # Optionally, save a checkpoint every N epochs regardless of performance
+            self.save_checkpoint(epoch, self.best_G_loss)
+            
+            # --- Apply LR Decay Schedulers ---
+            self.scheduler_G.step()
+            self.scheduler_D_A.step()
+            self.scheduler_D_B.step()
+        
+        total_end_time = time.time()
+        total_duration = total_end_time - total_start_time
+        print(f"\n✅ Training Complete! Total Time: {total_duration/60:.2f} min ({total_duration/3600:.2f} hr)")
+        
+        self.load_checkpoint(mode_best_checkpoint=True)
+        self.save_model()
+        
+    def train_step(self, real_A, real_A_patches, real_B, real_B_patches):
         """
         Performs a single training step, updating both Generators and Discriminators.
         A = Low Light, B = Normal Light
@@ -696,6 +755,8 @@ class Trainer_CBAM_GL_V2(Trainer):
         # Move data to device
         real_A = real_A.to(EXPERIMENT_MANAGER.device)
         real_B = real_B.to(EXPERIMENT_MANAGER.device)
+        real_A_patches = real_A_patches.squeeze(0).to(EXPERIMENT_MANAGER.device)
+        real_B_patches = real_B_patches.squeeze(0).to(EXPERIMENT_MANAGER.device)
 
         # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
 
@@ -711,7 +772,7 @@ class Trainer_CBAM_GL_V2(Trainer):
         # ---------------------------------------------------
         # 2. Update Discriminators (D_A and D_B)
         # ---------------------------------------------------
-        loss_D_A, loss_D_B = self.discriminator_training_step(real_A, real_B, real_target, fake_target, fake_A, fake_B)
+        loss_D_A, loss_D_B = self.discriminator_training_step(real_A, real_A_patches, real_B, real_B_patches, real_target, fake_target, fake_A, fake_B)
 
         # --- Return Loss Metrics ---
         metrics = {
@@ -724,22 +785,6 @@ class Trainer_CBAM_GL_V2(Trainer):
             'D_B': loss_D_B.item(),
         }
         return metrics
-    
-    def sample_local_patch(self, img, patch_size=128):
-        """
-        Randomly crops a patch of size (patch_size, patch_size) from the input image.
-        Assumes img is (B, C, H, W).
-        Returns patch (B, C, patch_size, patch_size).
-        """
-        local_patches = []
-        for _ in range(self.local_sample_n):
-            _, _, h, w = img.shape
-            i = random.randint(0, h - patch_size)
-            j = random.randint(0, w - patch_size)
-            local_patches.append(img[..., i:i+patch_size, j:j+patch_size])
-        local_patches = torch.stack(local_patches, dim=1)
-        local_patches = local_patches.squeeze(0)
-        return local_patches
         
     def gan_training_step(self, real_A, real_B, real_target, fake_target):
         # Set generator models to training mode
@@ -790,7 +835,7 @@ class Trainer_CBAM_GL_V2(Trainer):
         
         return loss_G_total, loss_G_A2B, loss_G_B2A, loss_cycle, loss_identity, fake_A, fake_B
     
-    def discriminator_training_step(self, real_A, real_B, real_target, fake_target, fake_A, fake_B):
+    def discriminator_training_step(self, real_A, real_A_patches, real_B, real_B_patches, real_target, fake_target, fake_A, fake_B):
         # Set discriminator models to training mode
         self.model.D_A.train()
         self.model.D_B.train()
@@ -800,8 +845,7 @@ class Trainer_CBAM_GL_V2(Trainer):
         # E. Update D_B (Discriminator for Normal Light B)
         # Real loss D_B
         # pred_real_B = self.model.D_B(real_B)
-        real_B_locals = self.sample_local_patch(real_B)
-        pred_real_B = self.model.D_B(real_B, real_B_locals)
+        pred_real_B = self.model.D_B(real_B, real_B_patches)
         loss_D_B_real = self.criterion_GAN(pred_real_B, real_target)
         
         # Fake loss D_B (Use buffered fake image)
@@ -818,8 +862,7 @@ class Trainer_CBAM_GL_V2(Trainer):
         # F. Update D_A (Discriminator for Low Light A)
         # Real loss D_A
         # pred_real_A = self.model.D_A(real_A)
-        real_A_locals = self.sample_local_patch(real_A)
-        pred_real_A = self.model.D_A(real_A, real_A_locals)
+        pred_real_A = self.model.D_A(real_A, real_A_patches)
         loss_D_A_real = self.criterion_GAN(pred_real_A, real_target)
 
         # Fake loss D_A (Use buffered fake image)
@@ -835,12 +878,5 @@ class Trainer_CBAM_GL_V2(Trainer):
         
         return loss_D_A, loss_D_B
 
-
-
-
-
-
-
-
-
-
+    def sample_local_patch(self, img):
+        return self.temp_dataset.sample_local_patch(img, is_train=True)

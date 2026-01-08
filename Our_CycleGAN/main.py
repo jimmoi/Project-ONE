@@ -2,14 +2,18 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 import pandas as pd
-from model_training import CustomDataset, Trainer, Trainer_CBAM_GL, Trainer_CBAM_GL_V2
+from tqdm import tqdm
+import json
+import os
+
+
+from model_training import Trainer, Trainer_CBAM_GL, Trainer_CBAM_GL_V2
+from custom_dataset import CustomDataset, CustomDataset_CBAM_GL_V2
 from CycleGAN_arch import CycleGAN, CycleGAN_CBAM_GL, CycleGAN_CBAM_GL_V2
 import data_preparation
 from model_evaluation import evaluate_quantitative, evaluate_qualitative
 from plot_metric_history import plot_metric_history
-from tqdm import tqdm
-import json
-import os
+
 from experiment_manager import EXPERIMENT_MANAGER
 
 def data_preprocessing():
@@ -27,7 +31,7 @@ def data_preprocessing():
     df_train.reset_index(drop=True, inplace=True)
     df_test.reset_index(drop=True, inplace=True)
     
-    test_dataset = CustomDataset(df_test, transform=EXPERIMENT_MANAGER.model.get_image_transforms())
+    test_dataset = EXPERIMENT_MANAGER.dataset(df_test, is_test=True)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False) # !! Caution: fix batch_size = 1
 
     return df_train, test_loader
@@ -89,9 +93,8 @@ def model_evaluation(test_loader, n_sample=7):
     print("Evaluation finished.")
     
 def model_training(df_train):
-    trainer = Trainer_CBAM_GL_V2(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10)
-    trainer.load_checkpoint()
-    trainer.start_train(df_train)
+    EXPERIMENT_MANAGER.trainer.load_checkpoint()
+    EXPERIMENT_MANAGER.trainer.start_train(df_train)
     
 def plot_log_history():
     def get_metric_history():
@@ -128,6 +131,8 @@ def main():
     #--------------------------
     EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_200", model=CycleGAN_CBAM_GL_V2)
     EXPERIMENT_MANAGER.setup_experiment()
+    EXPERIMENT_MANAGER.setup_dataset(CustomDataset_CBAM_GL_V2.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms(), patch_size=128, local_sample_n=4))
+    EXPERIMENT_MANAGER.setup_trainer(Trainer_CBAM_GL_V2(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10))
     #--------------------------
     # Data Preprocessing
     #--------------------------
