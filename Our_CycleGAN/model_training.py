@@ -324,7 +324,10 @@ class Trainer():
                 progress_bar.set_postfix(log_dict)
                 
             metric_per_epoch = {k: np.mean(v) for k, v in metric_per_epoch.items()}
-            self.tensorboard_writer(metric_per_epoch, epoch = epoch)
+            
+            # --- LOG LOSS FOR TENSORBOARD ---
+            if EXPERIMENT_MANAGER.verbose_tensorboard:
+                self.tensorboard_writer(metric_per_epoch, epoch = epoch)
                 
             # Calculate average Generator & Discriminator Loss for the epoch
             current_avg_G_loss = metric_per_epoch['G_Total']

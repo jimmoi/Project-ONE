@@ -6,7 +6,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 class ExperimentManager:
     experiment_dir = "Our_CycleGAN\experiments"
-    tensorboard_dir = os.path.join(experiment_dir, "runs")
     model_dir = "Our_CycleGAN\models"
     checkpoint_file = "cyclegan_checkpoint.pth"
     best_checkpoint_file = "cyclegan_best_checkpoint.pth"
@@ -17,7 +16,7 @@ class ExperimentManager:
     
     log_history_file = "history.png"
     
-    def __init__(self, data_path):
+    def __init__(self, data_path, tensorboard=True):
         self.experiment_name = None
         self.curr_dir = None
         self.full_model_path = None
@@ -28,6 +27,8 @@ class ExperimentManager:
         self.qualitative_metrics_path = None
         self.log_history_path = None
         self.model = None
+        self.verbose_tensorboard = tensorboard
+        self.tensorboard_dir = None
         self.tensorboard_writer = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.data_path = data_path
@@ -44,12 +45,30 @@ class ExperimentManager:
     def create_experiment_dir(self):
         try:
             os.makedirs(self.curr_dir)
-            os.makedirs(self.tensorboard_dir)
+            
         except FileExistsError:
             print(f"Experiment directory {self.curr_dir} already exists.")
+        finally:
+            if self.verbose_tensorboard:
+                os.makedirs(self.tensorboard_dir)
+                self.create_tensorboard_writer()
             
     def create_tensorboard_writer(self):
-        self.tensorboard_writer = SummaryWriter(os.path.join(self.tensorboard_dir, self.experiment_name))
+        self.tensorboard_writer = SummaryWriter(os.path.join(self.tensorboard_dir))
+        
+        tensorboard_bat_path = os.path.join(self.curr_dir, "tensorboard_run.bat")
+        with open(tensorboard_bat_path, "w") as f:
+            text = f"""
+            cd /d %~dp0
+
+            :: Use 'call' to ensure the script continues after activation
+            :: activate conda with torch environment
+            call conda activate proj
+
+            tensorboard --logdir=runs
+            """
+            
+            f.write(text)
     
     def load_model(self):
         model = self.model(self.device, only_G_A2B=True)
@@ -70,11 +89,11 @@ class ExperimentManager:
         self.qualitative_metrics_path = os.path.join(self.curr_dir, self.qualitative_metrics_file)
         self.log_history_path = os.path.join(self.curr_dir, self.log_history_file)
         self.model = model
-        self.create_tensorboard_writer()
+        self.tensorboard_dir = os.path.join(self.curr_dir, "runs")
 
 data_path = {
         "lol":"Our_CycleGAN\Dataset\LOL",
         "lolv2":"Our_CycleGAN\Dataset\LOL-v2"
     }
 
-EXPERIMENT_MANAGER = ExperimentManager(data_path)
+EXPERIMENT_MANAGER = ExperimentManager(data_path, tensorboard = True)
