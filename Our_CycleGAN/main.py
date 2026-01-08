@@ -2,8 +2,8 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 import pandas as pd
-from model_training import CustomDataset, Trainer, Trainer_CBAM_GL
-from CycleGAN_arch import CycleGAN, CycleGAN_CBAM_GL
+from model_training import CustomDataset, Trainer, Trainer_CBAM_GL, Trainer_CBAM_GL_V2
+from CycleGAN_arch import CycleGAN, CycleGAN_CBAM_GL, CycleGAN_CBAM_GL_V2
 import data_preparation
 from model_evaluation import evaluate_quantitative, evaluate_qualitative
 from plot_metric_history import plot_metric_history
@@ -89,7 +89,7 @@ def model_evaluation(test_loader, n_sample=7):
     print("Evaluation finished.")
     
 def model_training(df_train):
-    trainer = Trainer(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10)
+    trainer = Trainer_CBAM_GL_V2(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10)
     trainer.load_checkpoint()
     trainer.start_train(df_train)
     
@@ -126,7 +126,7 @@ def main():
     #--------------------------
     # Experiment Setup
     #--------------------------
-    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_200", model=CycleGAN)
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_200", model=CycleGAN_CBAM_GL_V2)
     EXPERIMENT_MANAGER.setup_experiment()
     #--------------------------
     # Data Preprocessing

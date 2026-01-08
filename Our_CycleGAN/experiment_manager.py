@@ -50,7 +50,7 @@ class ExperimentManager:
             print(f"Experiment directory {self.curr_dir} already exists.")
         finally:
             if self.verbose_tensorboard:
-                os.makedirs(self.tensorboard_dir)
+                os.makedirs(self.tensorboard_dir, exist_ok=True)
                 self.create_tensorboard_writer()
             
     def create_tensorboard_writer(self):
