@@ -2,14 +2,18 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 import pandas as pd
-from model_training import CustomDataset, Trainer
-from CycleGAN_arch import CycleGAN
-import data_preparation
-from model_evaluation import evaluate_quantitative, evaluate_qualitative
-from plot_metric_history import plot_metric_history
 from tqdm import tqdm
 import json
 import os
+
+
+from model_training import Trainer, Trainer_CBAM_GL, Trainer_CBAM_GL_V2
+from custom_dataset import CustomDataset, CustomDataset_CBAM_GL_V2
+from CycleGAN_arch import CycleGAN, CycleGAN_CBAM_GL, CycleGAN_CBAM_GL_V2
+import data_preparation
+from model_evaluation import evaluate_quantitative, evaluate_qualitative
+from plot_metric_history import plot_metric_history
+
 from experiment_manager import EXPERIMENT_MANAGER
 
 def data_preprocessing():
@@ -27,9 +31,7 @@ def data_preprocessing():
     df_train.reset_index(drop=True, inplace=True)
     df_test.reset_index(drop=True, inplace=True)
     
-    df_test = df_test[:50]
-    
-    test_dataset = CustomDataset(df_test, transform=EXPERIMENT_MANAGER.model.get_image_transforms())
+    test_dataset = EXPERIMENT_MANAGER.dataset(df_test[:10], is_test=True)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False) # !! Caution: fix batch_size = 1
 
     return df_train, test_loader
@@ -51,8 +53,9 @@ def model_evaluation(test_loader, n_sample=7):
         raise ValueError("Model not found.")
     
 
-    
+    np.random.seed(EXPERIMENT_MANAGER.seed)
     random_idx = np.random.choice(len(test_loader), n_sample, replace=False).tolist()
+    np.random.seed()
     compare_image = torch.zeros((len(random_idx), 3, 3, 256, 256))
     
     metrics = []
@@ -91,17 +94,15 @@ def model_evaluation(test_loader, n_sample=7):
     print("Evaluation finished.")
     
 def model_training(df_train):
-    trainer = Trainer(model=EXPERIMENT_MANAGER.model, n_epochs=50, history_step=1)
-    trainer.load_checkpoint()
-    trainer.start_train(df_train)
+    EXPERIMENT_MANAGER.trainer.load_checkpoint()
+    EXPERIMENT_MANAGER.trainer.start_train(df_train)
     
 def plot_log_history():
     def get_metric_history():
         collect_metric_history = []
-        metric_root = EXPERIMENT_MANAGER.curr_dir
-        for history_file in os.listdir(metric_root):
+        for history_file in os.listdir(EXPERIMENT_MANAGER.log_dir):
             if history_file.endswith(".json") and history_file.startswith("Training_log"):
-                file_path = os.path.join(metric_root, history_file)
+                file_path = os.path.join(EXPERIMENT_MANAGER.log_dir, history_file)
                 with open(file_path,"r") as f:
                     data = json.load(f)
                     collect_metric_history.append(data)
@@ -121,25 +122,38 @@ def plot_log_history():
     
     data = get_metric_history()
     metric_df = pd.DataFrame(data)
-    plot_metric_history(metric_df, n_x_ticks=1)
+    plot_metric_history(metric_df, n_x_ticks=50)
     
 def main():
     
     #--------------------------
     # Experiment Setup
     #--------------------------
-    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_XXX", model=CycleGAN)
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_XXX", model=CycleGAN)
     EXPERIMENT_MANAGER.setup_experiment()
+    EXPERIMENT_MANAGER.setup_dataset(CustomDataset.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms()))
+    EXPERIMENT_MANAGER.setup_trainer(Trainer(model=EXPERIMENT_MANAGER.model, n_epochs=4, history_step=2))
     #--------------------------
     # Data Preprocessing
     #--------------------------
     df_train, test_loader = data_preprocessing()
     df_train = df_train[:50]
+    test_loader = test_loader
     
     #--------------------------
+    # Tensorboard
+    #--------------------------
+    EXPERIMENT_MANAGER.launch_tensorboard()
+    #--------------------------
+    
     # Model Training
     #--------------------------
     model_training(df_train=df_train)
+    
+    
+    #--------------------------
+    # Plot Log History
+    #--------------------------
     plot_log_history()
     
     #--------------------------

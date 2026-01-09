@@ -71,9 +71,6 @@ class Trainer():
         # Dataset Manager
         self.dataset = EXPERIMENT_MANAGER.dataset
         
-        # Tensorboard Writer
-        self.tensorboard_writer = EXPERIMENT_MANAGER.tensorboard_writer
-        
         # Path
         self.checkpoint_path = EXPERIMENT_MANAGER.checkpoint_path
         self.best_checkpoint_path = EXPERIMENT_MANAGER.best_checkpoint_path
@@ -509,16 +506,16 @@ class Trainer():
         self.train_loop(df_train)
     
     def tensorboard_writer(self, metrics, epoch):
-        self.tensorboard_writer.add_scalars('Agg_Generator', {
+        EXPERIMENT_MANAGER.tensorboard_writer.add_scalars('Agg_Generator', {
             "G_total": metrics['G_Total'],
         }, epoch)
         
-        self.tensorboard_writer.add_scalars('Cycle_Identity', {
+        EXPERIMENT_MANAGER.tensorboard_writer.add_scalars('Cycle_Identity', {
             "cycle": metrics['Cycle'],
             "identity": metrics['Id'],
         }, epoch)
         
-        self.tensorboard_writer.add_scalars('Discriminator_Generator', {
+        EXPERIMENT_MANAGER.tensorboard_writer.add_scalars('Discriminator_Generator', {
             "D_A": metrics['D_A'],
             "D_B": metrics['D_B'],
             "G_A2B": metrics['G_A2B'],

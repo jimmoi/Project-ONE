@@ -1,5 +1,6 @@
 import shutil
 import os
+import platform
 import subprocess
 import webbrowser
 import time
@@ -127,27 +128,34 @@ class ExperimentManager:
         self.tensorboard_dir = os.path.join(self.curr_dir, "runs")
         
     def launch_tensorboard(self, port=6006):
-        cmd = ["python", "-m", "tensorboard.main", "--logdir", self.tensorboard_dir, "--port", port]
-        
-        print(f"--- Starting TensorBoard on port {port} ---")
-        print(f"--- Monitoring directory: {os.path.abspath(self.tensorboard_dir)} ---")
-        
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
-        time.sleep(3)
-        
+        logdir = os.path.abspath(self.tensorboard_dir)
         url = f"http://localhost:{port}"
-        webbrowser.open(url)
-        
-        print(f"Browser opened to {url}")
-        print("Press Ctrl+C in this terminal to stop the server.")
     
-        try:
-            # Keep the script alive so the subprocess doesn't die immediately
-            process.wait()
-        except KeyboardInterrupt:
-            print("\nStopping TensorBoard...")
-            process.terminate()
+        # Base command for TensorBoard
+        tb_cmd = f"python -m tensorboard.main --logdir \"{logdir}\" --port {port}"
+
+        print(f"--- Starting TensorBoard in a new terminal ---")
+        print(f"--- Monitoring: {logdir} ---")
+
+        system = platform.system()
+        
+        if system == "Windows":
+            # 'start' opens a new cmd window
+            subprocess.Popen(f"start cmd /k {tb_cmd}", shell=True)
+            
+        elif system == "Darwin":  # macOS
+            # Uses AppleScript to open Terminal and run the command
+            osascript = f'tell application "Terminal" to do script "{tb_cmd}"'
+            subprocess.Popen(["osascript", "-e", osascript])
+            
+        else:  # Linux (requires gnome-terminal, xterm, etc.)
+            # gnome-terminal is standard on Ubuntu
+            subprocess.Popen(["gnome-terminal", "--", "bash", "-c", f"{tb_cmd}; exec bash"])
+
+        # Wait for the server to spin up and open browser
+        time.sleep(3)
+        webbrowser.open(url)
+        print(f"Browser opened to {url}. You can continue using this script.")
 
 data_path = {
         "lol":"Our_CycleGAN\Dataset\LOL",

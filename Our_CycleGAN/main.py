@@ -53,8 +53,9 @@ def model_evaluation(test_loader, n_sample=7):
         raise ValueError("Model not found.")
     
 
-    
-    random_idx = np.random.choice(len(test_loader), n_sample, replace=False, seed=EXPERIMENT_MANAGER.seed).tolist()
+    np.random.seed(EXPERIMENT_MANAGER.seed)
+    random_idx = np.random.choice(len(test_loader), n_sample, replace=False).tolist()
+    np.random.seed()
     compare_image = torch.zeros((len(random_idx), 3, 3, 256, 256))
     
     metrics = []
@@ -100,9 +101,9 @@ def plot_log_history():
     def get_metric_history():
         collect_metric_history = []
         metric_root = EXPERIMENT_MANAGER.curr_dir
-        for history_file in os.listdir(metric_root):
+        for history_file in os.listdir(EXPERIMENT_MANAGER.log_dir):
             if history_file.endswith(".json") and history_file.startswith("Training_log"):
-                file_path = os.path.join(metric_root, history_file)
+                file_path = os.path.join(EXPERIMENT_MANAGER.log_dir, history_file)
                 with open(file_path,"r") as f:
                     data = json.load(f)
                     collect_metric_history.append(data)
@@ -157,6 +158,7 @@ def main():
     # Model Evaluation
     #--------------------------
     model_evaluation(test_loader=test_loader)
+    
 
 if __name__ == "__main__":
     main()

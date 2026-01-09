@@ -4,8 +4,9 @@ from PIL import Image
 import random
 
 class CustomDataset(Dataset):
-    def __init__(self, dataframe):
+    def __init__(self, dataframe, is_test=False):
         self.dataframe = dataframe
+        self.is_test = is_test
 
     def __len__(self):
         return len(self.dataframe)
