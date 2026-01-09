@@ -55,7 +55,7 @@ def model_evaluation(test_loader, n_sample=7):
 
     np.random.seed(EXPERIMENT_MANAGER.seed)
     random_idx = np.random.choice(len(test_loader), n_sample, replace=False).tolist()
-    np.random.seed()
+    np.random.seed(None)
     compare_image = torch.zeros((len(random_idx), 3, 3, 256, 256))
     
     metrics = []
@@ -132,7 +132,7 @@ def main():
     EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_XXX", model=CycleGAN)
     EXPERIMENT_MANAGER.setup_experiment()
     EXPERIMENT_MANAGER.setup_dataset(CustomDataset.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms()))
-    EXPERIMENT_MANAGER.setup_trainer(Trainer(model=EXPERIMENT_MANAGER.model, n_epochs=4, history_step=2))
+    EXPERIMENT_MANAGER.setup_trainer(Trainer(model=EXPERIMENT_MANAGER.model, n_epochs=50, history_step=2))
     #--------------------------
     # Data Preprocessing
     #--------------------------
@@ -160,6 +160,11 @@ def main():
     # Model Evaluation
     #--------------------------
     model_evaluation(test_loader=test_loader)
+    
+    #--------------------------
+    # Shutdown PC
+    #--------------------------
+    EXPERIMENT_MANAGER.shutdown_pc()
 
 if __name__ == "__main__":
     main()

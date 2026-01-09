@@ -159,6 +159,11 @@ def main():
     #--------------------------
     model_evaluation(test_loader=test_loader)
     
+    #--------------------------
+    # Shutdown PC
+    #--------------------------
+    EXPERIMENT_MANAGER.shutdown_pc()
+    
 
 if __name__ == "__main__":
     main()
