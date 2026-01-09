@@ -15,6 +15,7 @@ import time
 import json
 import pickle
 from CycleGAN_arch import CycleGAN
+from my_utils import timer
 from experiment_manager import EXPERIMENT_MANAGER
 random.seed(EXPERIMENT_MANAGER.seed)
 
@@ -658,10 +659,8 @@ class Trainer_CBAM_GL(Trainer):
         return loss_D_A, loss_D_B
 
 class Trainer_CBAM_GL_V2(Trainer):
-    def __init__(self, model, local_sample_n = 4, **kwargs):
+    def __init__(self, model, **kwargs):
         super().__init__(model, **kwargs)
-        self.local_sample_n = local_sample_n
-        
         # critirion
         self.criterion_GAN = nn.BCEWithLogitsLoss()
         self.criterion_cycle = nn.L1Loss()
@@ -726,20 +725,24 @@ class Trainer_CBAM_GL_V2(Trainer):
 
             print(f"\n--- Epoch {epoch+1} Complete ---")
             print(f"Avg Loss G: {current_avg_G_loss:.4f} | Avg Loss D_A: {current_avg_D_A_loss:.4f} | Avg Loss D_B: {current_avg_D_B_loss:.4f}")
-                
-            # Save checkpoint if the average G loss is the best we've seen
-            if current_avg_G_loss < self.best_G_loss:
-                self.best_G_loss = current_avg_G_loss
-                self.save_checkpoint(epoch, self.best_G_loss, mode_best_checkpoint=True)
-                
-            # Optionally, save a checkpoint every N epochs regardless of performance
-            self.save_checkpoint(epoch, self.best_G_loss)
+            
+            with timer("Saving best checkpoint"):
+                # Save checkpoint if the average G loss is the best we've seen
+                if current_avg_G_loss < self.best_G_loss:
+                    self.best_G_loss = current_avg_G_loss
+                    self.save_checkpoint(epoch, self.best_G_loss, mode_best_checkpoint=True)
+            
+            with timer("Saving epoch checkpoint"):
+                # Optionally, save a checkpoint every N epochs regardless of performance
+                self.save_checkpoint(epoch, self.best_G_loss)
+            
+            
             
             # --- Apply LR Decay Schedulers ---
             self.scheduler_G.step()
             self.scheduler_D_A.step()
             self.scheduler_D_B.step()
-        
+
         total_end_time = time.time()
         total_duration = total_end_time - total_start_time
         print(f"\n✅ Training Complete! Total Time: {total_duration/60:.2f} min ({total_duration/3600:.2f} hr)")
@@ -761,8 +764,8 @@ class Trainer_CBAM_GL_V2(Trainer):
         # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
 
         # Discriminator_GL outputs a single scalar (B, 1)
-        real_target = torch.full((1+self.local_sample_n, real_A.size(0)), 1.0, device=EXPERIMENT_MANAGER.device) 
-        fake_target = torch.full((1+self.local_sample_n, real_A.size(0)), 0.0, device=EXPERIMENT_MANAGER.device)
+        real_target = torch.full((1+EXPERIMENT_MANAGER.dataset.local_sample_n, real_A.size(0)), 1.0, device=EXPERIMENT_MANAGER.device) 
+        fake_target = torch.full((1+EXPERIMENT_MANAGER.dataset.local_sample_n, real_A.size(0)), 0.0, device=EXPERIMENT_MANAGER.device)
         
         # ---------------------------------------------------
         # 1. Update Generators (G_A2B and G_B2A)

@@ -129,9 +129,9 @@ def main():
     #--------------------------
     # Experiment Setup
     #--------------------------
-    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_200", model=CycleGAN_CBAM_GL_V2)
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_200_patch64_local8", model=CycleGAN_CBAM_GL_V2)
     EXPERIMENT_MANAGER.setup_experiment()
-    EXPERIMENT_MANAGER.setup_dataset(CustomDataset_CBAM_GL_V2.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms(), patch_size=128, local_sample_n=4))
+    EXPERIMENT_MANAGER.setup_dataset(CustomDataset_CBAM_GL_V2.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms(), patch_size=64, local_sample_n=16))
     EXPERIMENT_MANAGER.setup_trainer(Trainer_CBAM_GL_V2(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10))
     #--------------------------
     # Data Preprocessing
