@@ -1,15 +1,30 @@
 import shutil
 import os
+import subprocess
+import webbrowser
+import time
 import torch
 from CycleGAN_arch import CycleGAN
 from torch.utils.tensorboard import SummaryWriter
 
 class ExperimentManager:
-    experiment_dir = "Our_CycleGAN\experiments"
-    model_dir = "Our_CycleGAN\models"
+    """ExperimentManager class for managing experiments.
+    usage example:
+    EXPERIMENT_MANAGER = ExperimentManager(data_path, tensorboard = True)
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_200_patch64_local8", model=CycleGAN_CBAM_GL_V2)
+    EXPERIMENT_MANAGER.setup_experiment()
+    EXPERIMENT_MANAGER.setup_dataset(CustomDataset_CBAM_GL_V2.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms(), patch_size=64, local_sample_n=16))
+    EXPERIMENT_MANAGER.setup_trainer(Trainer_CBAM_GL_V2(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10))
+    """
+    
+    all_experiment_dir = "Our_CycleGAN\experiments"
+    all_model_dir = "Our_CycleGAN\models"
+    
+    visualization_dir = "visualization"
+    log_dir = "log"
+    
     checkpoint_file = "cyclegan_checkpoint.pth"
     best_checkpoint_file = "cyclegan_best_checkpoint.pth"
-    
     quantitative_metrics_file = "quantitative_metrics.csv"
     agg_quantitative_metrics_file = "agg_quantitative_metrics.json"
     qualitative_metrics_file = "qualitative_metrics.png"
@@ -40,8 +55,8 @@ class ExperimentManager:
         if self.experiment_name is None:
             raise ValueError("Experiment name not set.")
         
-        os.makedirs(self.experiment_dir, exist_ok=True)
-        os.makedirs(self.model_dir, exist_ok=True)
+        os.makedirs(self.all_experiment_dir, exist_ok=True)
+        os.makedirs(self.all_model_dir, exist_ok=True)
         self.create_experiment_dir()
         
     def setup_dataset(self, dataset):
@@ -53,6 +68,8 @@ class ExperimentManager:
     def create_experiment_dir(self):
         try:
             os.makedirs(self.curr_dir)
+            os.makedirs(self.visualization_dir)
+            os.makedirs(self.log_dir)
             
         except FileExistsError:
             print(f"Experiment directory {self.curr_dir} already exists.")
@@ -88,16 +105,49 @@ class ExperimentManager:
     
     def set_experiment_name(self, experiment_name, model):
         self.experiment_name = experiment_name
-        self.curr_dir = os.path.join(self.experiment_dir, experiment_name)
-        self.full_model_path = os.path.join(self.model_dir, self.experiment_name + "_model.pth")
+        
+        # directory in each experiment
+        self.curr_dir = os.path.join(self.all_experiment_dir, experiment_name)
+        self.visualization_dir = os.path.join(self.curr_dir, self.visualization_dir)
+        self.log_dir = os.path.join(self.curr_dir, self.log_dir)
+        
+        # path to model file in each experiment
+        self.full_model_path = os.path.join(self.all_model_dir, self.experiment_name + "_model.pth")
         self.checkpoint_path = os.path.join(self.curr_dir, self.checkpoint_file)
         self.best_checkpoint_path = os.path.join(self.curr_dir, self.best_checkpoint_file)
-        self.quantitative_metrics_path = os.path.join(self.curr_dir, self.quantitative_metrics_file)
-        self.agg_quantitative_metrics_path = os.path.join(self.curr_dir, self.agg_quantitative_metrics_file)
-        self.qualitative_metrics_path = os.path.join(self.curr_dir, self.qualitative_metrics_file)
-        self.log_history_path = os.path.join(self.curr_dir, self.log_history_file)
+        
+        # metrics file path in each experiment
+        self.quantitative_metrics_path = os.path.join(self.visualization_dir, self.quantitative_metrics_file)
+        self.agg_quantitative_metrics_path = os.path.join(self.visualization_dir, self.agg_quantitative_metrics_file)
+        self.qualitative_metrics_path = os.path.join(self.visualization_dir, self.qualitative_metrics_file)
+        self.log_history_path = os.path.join(self.visualization_dir, self.log_history_file)
         self.model = model
+        
+        # directory to tensorboard in each experiment
         self.tensorboard_dir = os.path.join(self.curr_dir, "runs")
+        
+    def launch_tensorboard(self, port=6006):
+        cmd = ["python", "-m", "tensorboard.main", "--logdir", self.tensorboard_dir, "--port", port]
+        
+        print(f"--- Starting TensorBoard on port {port} ---")
+        print(f"--- Monitoring directory: {os.path.abspath(self.tensorboard_dir)} ---")
+        
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        time.sleep(3)
+        
+        url = f"http://localhost:{port}"
+        webbrowser.open(url)
+        
+        print(f"Browser opened to {url}")
+        print("Press Ctrl+C in this terminal to stop the server.")
+    
+        try:
+            # Keep the script alive so the subprocess doesn't die immediately
+            process.wait()
+        except KeyboardInterrupt:
+            print("\nStopping TensorBoard...")
+            process.terminate()
 
 data_path = {
         "lol":"Our_CycleGAN\Dataset\LOL",

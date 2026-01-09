@@ -54,7 +54,7 @@ def model_evaluation(test_loader, n_sample=7):
     
 
     
-    random_idx = np.random.choice(len(test_loader), n_sample, replace=False).tolist()
+    random_idx = np.random.choice(len(test_loader), n_sample, replace=False, seed=EXPERIMENT_MANAGER.seed).tolist()
     compare_image = torch.zeros((len(random_idx), 3, 3, 256, 256))
     
     metrics = []
@@ -142,6 +142,15 @@ def main():
     # Model Training
     #--------------------------
     model_training(df_train=df_train)
+    
+    #--------------------------
+    # Tensorboard
+    #--------------------------
+    EXPERIMENT_MANAGER.launch_tensorboard()
+    
+    #--------------------------
+    # Plot Log History
+    #--------------------------
     plot_log_history()
     
     #--------------------------

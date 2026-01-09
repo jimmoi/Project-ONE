@@ -62,6 +62,22 @@ class Trainer():
                 history_step=10, 
                 init_weights=True,
                 ):
+        # Device
+        self.device = EXPERIMENT_MANAGER.device
+        
+        # Verbose
+        self.verbose_tensorboard = EXPERIMENT_MANAGER.verbose_tensorboard
+        
+        # Dataset Manager
+        self.dataset = EXPERIMENT_MANAGER.dataset
+        
+        # Tensorboard Writer
+        self.tensorboard_writer = EXPERIMENT_MANAGER.tensorboard_writer
+        
+        # Path
+        self.checkpoint_path = EXPERIMENT_MANAGER.checkpoint_path
+        self.best_checkpoint_path = EXPERIMENT_MANAGER.best_checkpoint_path
+        self.full_model_path = EXPERIMENT_MANAGER.full_model_path
         
         # Hyperparameters
         self.lr = lr
@@ -81,7 +97,7 @@ class Trainer():
         self.criterion_identity = nn.L1Loss()
         
         # model
-        self.model = model(device=EXPERIMENT_MANAGER.device)
+        self.model = model(device=self.device)
         self.model.model_init()
         self.model_net = [self.model.G_A2B, self.model.G_B2A, self.model.D_A, self.model.D_B]
         if init_weights:
@@ -200,8 +216,8 @@ class Trainer():
             'D_A_state_dict': self.model.D_A.state_dict(),
             'D_B_state_dict': self.model.D_B.state_dict(),
         }
-        torch.save(state, EXPERIMENT_MANAGER.full_model_path)
-        print(f"Model saved to {EXPERIMENT_MANAGER.full_model_path}")
+        torch.save(state, self.full_model_path)
+        print(f"Model saved to {self.full_model_path}")
         
     def save_checkpoint(self, epoch, best_G_loss, mode_best_checkpoint=False):
         """Saves the state of all models and optimizers."""
@@ -216,24 +232,24 @@ class Trainer():
             'optimizer_D_A_state_dict': self.optimizer_D_A.state_dict(),
             'optimizer_D_B_state_dict': self.optimizer_D_B.state_dict(),
         }
-        torch.save(state, EXPERIMENT_MANAGER.checkpoint_path)
-        print(f"Checkpoint saved to {EXPERIMENT_MANAGER.checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
+        torch.save(state, self.checkpoint_path)
+        print(f"Checkpoint saved to {self.checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
         if mode_best_checkpoint:
-            torch.save(state, EXPERIMENT_MANAGER.best_checkpoint_path)
-            print(f"Best checkpoint saved to {EXPERIMENT_MANAGER.best_checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
+            torch.save(state, self.best_checkpoint_path)
+            print(f"Best checkpoint saved to {self.best_checkpoint_path} (Epoch {epoch+1}, Loss: {best_G_loss:.4f})")
     
     def load_checkpoint(self, mode_best_checkpoint = False):
         """Loads state from a checkpoint file if it exists.
         mode_best_checkpoint: if True, load the best checkpoint, otherwise load the last checkpoint"""
-        if os.path.exists(EXPERIMENT_MANAGER.checkpoint_path):
+        if os.path.exists(self.checkpoint_path):
             if mode_best_checkpoint:
-                checkpoint_path = EXPERIMENT_MANAGER.best_checkpoint_path
+                checkpoint_path = self.best_checkpoint_path
             else:
-                checkpoint_path = EXPERIMENT_MANAGER.checkpoint_path
+                checkpoint_path = self.checkpoint_path
             try:
                 
                 print(f"Loading checkpoint from {checkpoint_path}...")
-                checkpoint = torch.load(checkpoint_path, map_location=EXPERIMENT_MANAGER.device, weights_only=False)
+                checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
                 
                 # Load states
                 self.model.G_A2B.load_state_dict(checkpoint['G_A2B_state_dict'])
@@ -255,7 +271,7 @@ class Trainer():
                 print(f"Error loading checkpoint: {e}. Starting fresh.")
                 return False
         else:
-            print(f"No checkpoint found at {EXPERIMENT_MANAGER.checkpoint_path}. Starting fresh.")
+            print(f"No checkpoint found at {self.checkpoint_path}. Starting fresh.")
             return False
         
     def train_loop(self, df_train):
@@ -273,7 +289,7 @@ class Trainer():
             
             if epoch+1 == end_epoch_history:
                 file_name = f"Training_log_history_ep{start_epoch_history}_to_{end_epoch_history-1}.json"
-                file_path = os.path.join(EXPERIMENT_MANAGER.curr_dir, file_name)
+                file_path = os.path.join(EXPERIMENT_MANAGER.log_dir, file_name)
                 with open(file_path, "w") as f:
                     json.dump(train_history, f)
                 start_epoch_history = end_epoch_history
@@ -306,7 +322,7 @@ class Trainer():
             metric_per_epoch = {k: np.mean(v) for k, v in metric_per_epoch.items()}
             
             # --- LOG LOSS FOR TENSORBOARD ---
-            if EXPERIMENT_MANAGER.verbose_tensorboard:
+            if self.verbose_tensorboard:
                 self.tensorboard_writer(metric_per_epoch, epoch = epoch)
                 
             # Calculate average Generator & Discriminator Loss for the epoch
@@ -343,13 +359,13 @@ class Trainer():
         A = Low Light, B = Normal Light
         """
         # Move data to device
-        real_A = real_A.to(EXPERIMENT_MANAGER.device)
-        real_B = real_B.to(EXPERIMENT_MANAGER.device)
+        real_A = real_A.to(self.device)
+        real_B = real_B.to(self.device)
 
         # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
         # image at D model in last channel is 1x30x30
-        real_target = torch.full((real_A.size(0), 1, 30, 30), 1.0, device=EXPERIMENT_MANAGER.device) # image at D model in last channel is 30x30
-        fake_target = torch.full((real_A.size(0), 1, 30, 30), 0.0, device=EXPERIMENT_MANAGER.device)
+        real_target = torch.full((real_A.size(0), 1, 30, 30), 1.0, device=self.device) # image at D model in last channel is 30x30
+        fake_target = torch.full((real_A.size(0), 1, 30, 30), 0.0, device=self.device)
         
         # ---------------------------------------------------
         # 1. Update Generators (G_A2B and G_B2A)
@@ -479,7 +495,7 @@ class Trainer():
         df_train.loc[:,"normal_light_path"] = df_train["normal_light_path"].sample(frac=1).values
         
         # 2. Re-instantiate the Dataset and DataLoader with the new, unpaired DataFrame
-        new_train_dataset = EXPERIMENT_MANAGER.dataset(df_train)
+        new_train_dataset = self.dataset(df_train)
         # shuffle=False is typically used here because the DataFrame columns are already shuffled.
         # However, keeping shuffle=True here won't hurt, but we set it to False for clarity.
         train_loader = DataLoader(new_train_dataset, batch_size=1, shuffle=False)  # !! Caution: fix batch_size = 1
@@ -493,16 +509,16 @@ class Trainer():
         self.train_loop(df_train)
     
     def tensorboard_writer(self, metrics, epoch):
-        EXPERIMENT_MANAGER.tensorboard_writer.add_scalars('Agg_Generator', {
+        self.tensorboard_writer.add_scalars('Agg_Generator', {
             "G_total": metrics['G_Total'],
         }, epoch)
         
-        EXPERIMENT_MANAGER.tensorboard_writer.add_scalars('Cycle_Identity', {
+        self.tensorboard_writer.add_scalars('Cycle_Identity', {
             "cycle": metrics['Cycle'],
             "identity": metrics['Id'],
         }, epoch)
         
-        EXPERIMENT_MANAGER.tensorboard_writer.add_scalars('Discriminator_Generator', {
+        self.tensorboard_writer.add_scalars('Discriminator_Generator', {
             "D_A": metrics['D_A'],
             "D_B": metrics['D_B'],
             "G_A2B": metrics['G_A2B'],
@@ -519,17 +535,12 @@ class Trainer_CBAM_GL(Trainer):
         A = Low Light, B = Normal Light
         """
         # Move data to device
-        real_A = real_A.to(EXPERIMENT_MANAGER.device)
-        real_B = real_B.to(EXPERIMENT_MANAGER.device)
+        real_A = real_A.to(self.device)
+        real_B = real_B.to(self.device)
 
         # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
-        # Old PatchGAN targets:
-        # real_target = torch.full((real_A.size(0), 1, 30, 30), 1.0, device=EXPERIMENT_MANAGER.device) # image at D model in last channel is 30x30
-        # fake_target = torch.full((real_A.size(0), 1, 30, 30), 0.0, device=EXPERIMENT_MANAGER.device)
-
-        # Discriminator_GL outputs a single scalar (B, 1)
-        real_target = torch.full((real_A.size(0), 1), 1.0, device=EXPERIMENT_MANAGER.device) 
-        fake_target = torch.full((real_A.size(0), 1), 0.0, device=EXPERIMENT_MANAGER.device)
+        real_target = torch.full((real_A.size(0), 1), 1.0, device=self.device) 
+        fake_target = torch.full((real_A.size(0), 1), 0.0, device=self.device)
         
         # ---------------------------------------------------
         # 1. Update Generators (G_A2B and G_B2A)
@@ -665,7 +676,6 @@ class Trainer_CBAM_GL_V2(Trainer):
         self.criterion_GAN = nn.BCEWithLogitsLoss()
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
-        self.temp_dataset = EXPERIMENT_MANAGER.dataset(None)
     
     def train_loop(self, df_train):
         total_start_time = time.time()  # Track total training time
@@ -682,7 +692,7 @@ class Trainer_CBAM_GL_V2(Trainer):
             
             if epoch+1 == end_epoch_history:
                 file_name = f"Training_log_history_ep{start_epoch_history}_to_{end_epoch_history-1}.json"
-                file_path = os.path.join(EXPERIMENT_MANAGER.curr_dir, file_name)
+                file_path = os.path.join(EXPERIMENT_MANAGER.log_dir, file_name)
                 with open(file_path, "w") as f:
                     json.dump(train_history, f)
                 start_epoch_history = end_epoch_history
@@ -715,7 +725,7 @@ class Trainer_CBAM_GL_V2(Trainer):
             metric_per_epoch = {k: np.mean(v) for k, v in metric_per_epoch.items()}
             
             # --- LOG LOSS FOR TENSORBOARD ---
-            if EXPERIMENT_MANAGER.verbose_tensorboard:
+            if self.verbose_tensorboard:
                 self.tensorboard_writer(metric_per_epoch, epoch = epoch)
                 
             # Calculate average Generator & Discriminator Loss for the epoch
@@ -756,16 +766,14 @@ class Trainer_CBAM_GL_V2(Trainer):
         A = Low Light, B = Normal Light
         """
         # Move data to device
-        real_A = real_A.to(EXPERIMENT_MANAGER.device)
-        real_B = real_B.to(EXPERIMENT_MANAGER.device)
-        real_A_patches = real_A_patches.squeeze(0).to(EXPERIMENT_MANAGER.device)
-        real_B_patches = real_B_patches.squeeze(0).to(EXPERIMENT_MANAGER.device)
+        real_A = real_A.to(self.device)
+        real_B = real_B.to(self.device)
+        real_A_patches = real_A_patches.squeeze(0).to(self.device)
+        real_B_patches = real_B_patches.squeeze(0).to(self.device)
 
         # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
-
-        # Discriminator_GL outputs a single scalar (B, 1)
-        real_target = torch.full((1+EXPERIMENT_MANAGER.dataset.local_sample_n, real_A.size(0)), 1.0, device=EXPERIMENT_MANAGER.device) 
-        fake_target = torch.full((1+EXPERIMENT_MANAGER.dataset.local_sample_n, real_A.size(0)), 0.0, device=EXPERIMENT_MANAGER.device)
+        real_target = torch.full((1+self.dataset.local_sample_n, real_A.size(0)), 1.0, device=self.device) 
+        fake_target = torch.full((1+self.dataset.local_sample_n, real_A.size(0)), 0.0, device=self.device)
         
         # ---------------------------------------------------
         # 1. Update Generators (G_A2B and G_B2A)
@@ -882,4 +890,4 @@ class Trainer_CBAM_GL_V2(Trainer):
         return loss_D_A, loss_D_B
 
     def sample_local_patch(self, img):
-        return self.temp_dataset.sample_local_patch(img, is_train=True)
+        return self.dataset(None).sample_local_patch(img, is_train=True)
