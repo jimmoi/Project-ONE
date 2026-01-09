@@ -140,14 +140,15 @@ def main():
     df_train, test_loader = data_preprocessing()
     
     #--------------------------
+    # Tensorboard
+    #--------------------------
+    EXPERIMENT_MANAGER.launch_tensorboard()
+    
+    #--------------------------
     # Model Training
     #--------------------------
     model_training(df_train=df_train)
     
-    #--------------------------
-    # Tensorboard
-    #--------------------------
-    EXPERIMENT_MANAGER.launch_tensorboard()
     
     #--------------------------
     # Plot Log History
