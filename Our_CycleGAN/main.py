@@ -7,9 +7,9 @@ import json
 import os
 
 
-from model_training import Trainer, Trainer_CBAM_GL, Trainer_CBAM_GL_V2
-from custom_dataset import CustomDataset, CustomDataset_CBAM_GL_V2
-from CycleGAN_arch import CycleGAN, CycleGAN_CBAM_GL, CycleGAN_CBAM_GL_V2
+from model_training import *
+from custom_dataset import *
+from CycleGAN_arch import *
 import data_preparation
 from model_evaluation import evaluate_quantitative, evaluate_qualitative
 from plot_metric_history import plot_metric_history
@@ -130,10 +130,10 @@ def main():
     #--------------------------
     # Experiment Setup
     #--------------------------
-    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V2_200_patch64_local8", model=CycleGAN_CBAM_GL_V2)
+    EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V3_200_patch128_local5", model=CycleGAN_CBAM_GL_V3)
     EXPERIMENT_MANAGER.setup_experiment()
-    EXPERIMENT_MANAGER.setup_dataset(CustomDataset_CBAM_GL_V2.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms(), patch_size=64, local_sample_n=16))
-    EXPERIMENT_MANAGER.setup_trainer(Trainer_CBAM_GL_V2(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10))
+    EXPERIMENT_MANAGER.setup_dataset(CustomDataset_CBAM_GL_V2.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms(), patch_size=128, local_sample_n=5))
+    EXPERIMENT_MANAGER.setup_trainer(Trainer_CBAM_GL_V3(model=EXPERIMENT_MANAGER.model, n_epochs=50, history_step=2))
     #--------------------------
     # Data Preprocessing
     #--------------------------

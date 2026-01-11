@@ -888,3 +888,48 @@ class Trainer_CBAM_GL_V2(Trainer):
 
     def sample_local_patch(self, img):
         return self.dataset(None).sample_local_patch(img, is_train=True)
+    
+class Trainer_CBAM_GL_V3(Trainer_CBAM_GL_V2):
+    def __init__(self, model, **kwargs):
+        super().__init__(model, **kwargs)
+        # critirion
+        self.criterion_GAN = nn.MSELoss()
+        self.criterion_cycle = nn.L1Loss()
+        self.criterion_identity = nn.L1Loss()
+    
+    def train_step(self, real_A, real_A_patches, real_B, real_B_patches):
+        """
+        Performs a single training step, updating both Generators and Discriminators.
+        A = Low Light, B = Normal Light
+        """
+        # Move data to device
+        real_A = real_A.to(self.device)
+        real_B = real_B.to(self.device)
+        real_A_patches = real_A_patches.squeeze(0).to(self.device)
+        real_B_patches = real_B_patches.squeeze(0).to(self.device)
+
+        # Define target tensors for GAN loss (LSGAN uses 1.0 for real, 0.0 for fake)
+        real_target = torch.full((self.dataset.local_sample_n, 1, 31, 31), 1.0, device=self.device) # image at D model in last channel is 30x30
+        fake_target = torch.full((self.dataset.local_sample_n, 1, 31, 31), 0.0, device=self.device)
+        
+        # ---------------------------------------------------
+        # 1. Update Generators (G_A2B and G_B2A)
+        # ---------------------------------------------------
+        loss_G_total, loss_G_A2B, loss_G_B2A, loss_cycle, loss_identity, fake_A, fake_B = self.gan_training_step(real_A, real_B, real_target, fake_target)
+        
+        # ---------------------------------------------------
+        # 2. Update Discriminators (D_A and D_B)
+        # ---------------------------------------------------
+        loss_D_A, loss_D_B = self.discriminator_training_step(real_A, real_A_patches, real_B, real_B_patches, real_target, fake_target, fake_A, fake_B)
+
+        # --- Return Loss Metrics ---
+        metrics = {
+            'G_Total': loss_G_total.item(),
+            'G_A2B': loss_G_A2B.item(),
+            'G_B2A': loss_G_B2A.item(),
+            'Cycle': loss_cycle.item(),
+            'Id': loss_identity.item(),
+            'D_A': loss_D_A.item(),
+            'D_B': loss_D_B.item(),
+        }
+        return metrics

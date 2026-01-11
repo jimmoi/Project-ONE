@@ -91,8 +91,6 @@ class CycleGAN_CBAM_GL(CycleGAN):
         # --- MODEL INITIALIZATION (User's original structure) ---
         # discriminator
         if not self.only_G_A2B:
-            # self.D_A = Discriminator(input_nc=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
-            # self.D_B = Discriminator(input_nc=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
             self.D_A = Discriminator_GL(input_nc=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
             self.D_B = Discriminator_GL(input_nc=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
 
@@ -110,8 +108,6 @@ class CycleGAN_CBAM_GL_V2(CycleGAN):
         # --- MODEL INITIALIZATION (User's original structure) ---
         # discriminator
         if not self.only_G_A2B:
-            # self.D_A = Discriminator(input_nc=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
-            # self.D_B = Discriminator(input_nc=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
             self.D_A = Discriminator_GL_V2(input_nc=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
             self.D_B = Discriminator_GL_V2(input_nc=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
 
@@ -121,5 +117,21 @@ class CycleGAN_CBAM_GL_V2(CycleGAN):
         else:
             self.G_A2B = Generator_CBAM(input_nc=3, output_nc=3).to(self.device) # G_B(A) -> B
 
+class CycleGAN_CBAM_GL_V3(CycleGAN):
+    def __init__(self, device, only_G_A2B=False):
+        super().__init__(device, only_G_A2B)
         
+    def model_init(self):
+        # --- MODEL INITIALIZATION (User's original structure) ---
+        # discriminator
+        if not self.only_G_A2B:
+            self.D_A = Discriminator_GL_V3(in_channels=3).to(self.device) # D_A is Discriminator for Domain A (Low Light)
+            self.D_B = Discriminator_GL_V3(in_channels=3).to(self.device) # D_B is Discriminator for Domain B (Normal Light)
+
+        # generator
+            self.G_A2B = Generator_CBAM(input_nc=3, output_nc=3).to(self.device) # G_B(A) -> B
+            self.G_B2A = Generator_CBAM(input_nc=3, output_nc=3).to(self.device)  # G_A(B) -> A
+        else:
+            self.G_A2B = Generator_CBAM(input_nc=3, output_nc=3).to(self.device) # G_B(A) -> B
+     
   
