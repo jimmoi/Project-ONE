@@ -27,6 +27,7 @@ def data_preprocessing():
     
     df_train = pd.read_csv(train_dataset_path)
     df_test = pd.read_csv(test_dataset_path)
+    df_test = df_test[(df_test["data_type"] == "Real_captured") & (df_test["section"] == "Test")]
     
     df_train.reset_index(drop=True, inplace=True)
     df_test.reset_index(drop=True, inplace=True)
@@ -76,7 +77,7 @@ def model_evaluation(test_loader, n_sample=7):
         #--------------------------
         # Quantitative Evaluation
         #--------------------------
-        metrics.append(evaluate_quantitative(generated_img, normal_light_img, EXPERIMENT_MANAGER.device))
+        metrics.append(evaluate_quantitative(generated_img, normal_light_img))
         
         if i in random_idx:
             compare_image[iter_round] = torch.cat([low_light_img, normal_light_img, generated_img], dim=0)
@@ -133,7 +134,7 @@ def main():
     EXPERIMENT_MANAGER.set_experiment_name("cyclegan_CBAM_GL_V3_200_patch128_local5", model=CycleGAN_CBAM_GL_V3)
     EXPERIMENT_MANAGER.setup_experiment()
     EXPERIMENT_MANAGER.setup_dataset(CustomDataset_CBAM_GL_V2.setup_dataset(EXPERIMENT_MANAGER.model.get_image_transforms(), patch_size=128, local_sample_n=5))
-    EXPERIMENT_MANAGER.setup_trainer(Trainer_CBAM_GL_V3(model=EXPERIMENT_MANAGER.model, n_epochs=50, history_step=2))
+    EXPERIMENT_MANAGER.setup_trainer(Trainer_CBAM_GL_V3(model=EXPERIMENT_MANAGER.model, n_epochs=200, history_step=10))
     #--------------------------
     # Data Preprocessing
     #--------------------------
@@ -142,7 +143,7 @@ def main():
     #--------------------------
     # Tensorboard
     #--------------------------
-    EXPERIMENT_MANAGER.launch_tensorboard()
+    # EXPERIMENT_MANAGER.launch_tensorboard()
     
     #--------------------------
     # Model Training
@@ -163,7 +164,7 @@ def main():
     #--------------------------
     # Shutdown PC
     #--------------------------
-    EXPERIMENT_MANAGER.shutdown_pc()
+    # EXPERIMENT_MANAGER.shutdown_pc()
     
 
 if __name__ == "__main__":

@@ -184,6 +184,7 @@ class Discriminator_GL_V2(nn.Module):
             nn.BatchNorm2d(512),
             nn.LeakyReLU(0.2, inplace=True),
             
+            ## for local patch size = 128
             # nn.Conv2d(512, 512, kernel_size=5, stride=2, padding=2),
             # nn.BatchNorm2d(512),
             # nn.LeakyReLU(0.2, inplace=True)
