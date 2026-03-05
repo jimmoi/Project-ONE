@@ -281,9 +281,10 @@ class Trainer():
         
         for epoch in range(self.start_epoch, self.n_epochs):
             train_loader = self.create_train_loader(df_train)
+            metrics_name = ['G_Total', 'G_A2B', 'G_B2A', 'Cycle', 'Id', 'D_A', 'D_B']
             
             progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.n_epochs}")
-            avg_metrics = {k: [] for k in ['G_Total', 'G_A2B', 'G_B2A', 'Cycle', 'Id', 'D_A', 'D_B']}
+            avg_metrics = {k: [] for k in metrics_name}
             
             if epoch+1 == end_epoch_history:
                 file_name = f"Training_log_history_ep{start_epoch_history}_to_{end_epoch_history-1}.json"
@@ -294,7 +295,7 @@ class Trainer():
                 end_epoch_history = start_epoch_history + self.history_step
                 train_history = []
                 
-            metric_per_epoch = {k: [] for k in ['G_Total', 'G_A2B', 'G_B2A', 'Cycle', 'Id', 'D_A', 'D_B']}
+            metric_per_epoch = {k: [] for k in metrics_name}
                 
             for i, (real_A, real_B) in enumerate(progress_bar):
                 metrics = self.train_step(real_A, real_B)
